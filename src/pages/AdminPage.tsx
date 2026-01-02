@@ -7,11 +7,23 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Shield, Users, Search, AlertTriangle, TrendingUp, Database } from "lucide-react";
+import { Shield, Users, Search, AlertTriangle, TrendingUp, Database, UserPlus, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { z } from "zod";
 
 type AppRole = "admin" | "senior_technician" | "technician";
+
+// Validation schema
+const addUserSchema = z.object({
+  email: z.string().trim().email("Email tidak valid").max(255, "Email terlalu panjang"),
+  password: z.string().min(8, "Password minimal 8 karakter").max(72, "Password terlalu panjang"),
+  fullName: z.string().trim().min(2, "Nama minimal 2 karakter").max(100, "Nama terlalu panjang"),
+  role: z.enum(["admin", "senior_technician", "technician"]),
+});
 
 interface UserWithRole {
   user_id: string;
@@ -34,6 +46,15 @@ interface SearchQuery {
 export default function AdminPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  
+  // Add user form state
+  const [addUserOpen, setAddUserOpen] = useState(false);
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserFullName, setNewUserFullName] = useState("");
+  const [newUserRole, setNewUserRole] = useState<AppRole>("technician");
+  const [addingUser, setAddingUser] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Check if current user is admin
   const { data: isAdmin, isLoading: checkingAdmin } = useQuery({
@@ -120,6 +141,79 @@ export default function AdminPage() {
       toast.success("Query dihapus");
     },
   });
+
+  // Add new user function
+  const handleAddUser = async () => {
+    setFormErrors({});
+    
+    // Validate input
+    const validationResult = addUserSchema.safeParse({
+      email: newUserEmail,
+      password: newUserPassword,
+      fullName: newUserFullName,
+      role: newUserRole,
+    });
+
+    if (!validationResult.success) {
+      const errors: Record<string, string> = {};
+      validationResult.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          errors[err.path[0] as string] = err.message;
+        }
+      });
+      setFormErrors(errors);
+      return;
+    }
+
+    setAddingUser(true);
+    try {
+      // Create user with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: newUserEmail,
+        password: newUserPassword,
+        options: {
+          data: {
+            full_name: newUserFullName,
+          },
+          emailRedirectTo: `${window.location.origin}/`,
+        },
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // Update the role if not the default
+        if (newUserRole !== "senior_technician") {
+          const { error: roleError } = await supabase
+            .from("user_roles")
+            .update({ role: newUserRole })
+            .eq("user_id", authData.user.id);
+          
+          if (roleError) {
+            console.error("Failed to update role:", roleError);
+          }
+        }
+
+        toast.success(`User ${newUserEmail} berhasil ditambahkan dengan role ${newUserRole}`);
+        queryClient.invalidateQueries({ queryKey: ["adminUsers"] });
+        
+        // Reset form
+        setNewUserEmail("");
+        setNewUserPassword("");
+        setNewUserFullName("");
+        setNewUserRole("technician");
+        setAddUserOpen(false);
+      }
+    } catch (error: any) {
+      if (error.message?.includes("already registered")) {
+        toast.error("Email sudah terdaftar");
+      } else {
+        toast.error("Gagal menambahkan user: " + error.message);
+      }
+    } finally {
+      setAddingUser(false);
+    }
+  };
 
   const getRoleBadgeVariant = (role: AppRole) => {
     switch (role) {
@@ -240,9 +334,92 @@ export default function AdminPage() {
         {/* User Management Tab */}
         <TabsContent value="users">
           <Card>
-            <CardHeader>
-              <CardTitle>User Management</CardTitle>
-              <CardDescription>Kelola user dan role mereka</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>User Management</CardTitle>
+                <CardDescription>Kelola user dan role mereka</CardDescription>
+              </div>
+              <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <UserPlus className="h-4 w-4" />
+                    Tambah User
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Tambah User Baru</DialogTitle>
+                    <DialogDescription>
+                      Buat akun user baru dan tentukan role-nya
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="fullName">Nama Lengkap</Label>
+                      <Input
+                        id="fullName"
+                        value={newUserFullName}
+                        onChange={(e) => setNewUserFullName(e.target.value)}
+                        placeholder="Masukkan nama lengkap"
+                      />
+                      {formErrors.fullName && (
+                        <p className="text-sm text-destructive">{formErrors.fullName}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={newUserEmail}
+                        onChange={(e) => setNewUserEmail(e.target.value)}
+                        placeholder="user@example.com"
+                      />
+                      {formErrors.email && (
+                        <p className="text-sm text-destructive">{formErrors.email}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={newUserPassword}
+                        onChange={(e) => setNewUserPassword(e.target.value)}
+                        placeholder="Minimal 8 karakter"
+                      />
+                      {formErrors.password && (
+                        <p className="text-sm text-destructive">{formErrors.password}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="role">Role</Label>
+                      <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as AppRole)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="senior_technician">Senior Technician</SelectItem>
+                          <SelectItem value="technician">Technician</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {formErrors.role && (
+                        <p className="text-sm text-destructive">{formErrors.role}</p>
+                      )}
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setAddUserOpen(false)}>
+                      Batal
+                    </Button>
+                    <Button onClick={handleAddUser} disabled={addingUser}>
+                      {addingUser && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Tambah User
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardHeader>
             <CardContent>
               {loadingUsers ? (
