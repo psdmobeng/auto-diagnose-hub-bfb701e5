@@ -5,12 +5,14 @@ import { useToast } from "@/hooks/use-toast";
 import { DataTable, Column, CategoryBadge } from "@/components/crud/DataTable";
 import { FormDialog } from "@/components/crud/FormDialog";
 import { PageHeader } from "@/components/crud/PageHeader";
+import { DetailSheet, DetailField, DetailParagraph } from "@/components/crud/DetailSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Stethoscope } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface Symptom {
   symptom_id: string;
@@ -30,6 +32,7 @@ export default function SymptomsPage() {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Symptom | null>(null);
+  const [selectedItem, setSelectedItem] = useState<Symptom | null>(null);
   const [formData, setFormData] = useState({ problem_id: "", symptom_description: "", symptom_type: "Other", occurrence_condition: "", frequency: "Intermittent" });
 
   const { data: symptoms = [], isLoading } = useQuery({
@@ -99,10 +102,37 @@ export default function SymptomsPage() {
     { key: "frequency", header: "Frekuensi", className: "hidden md:table-cell" },
   ];
 
+  const getDetailFields = (item: Symptom): DetailField[] => [
+    { label: "Problem Terkait", value: item.problems ? `${item.problems.problem_code} - ${item.problems.problem_name}` : null },
+    { label: "Tipe Gejala", value: <CategoryBadge category={item.symptom_type} /> },
+    { label: "Frekuensi Kemunculan", value: item.frequency ? <Badge variant="outline">{item.frequency}</Badge> : null },
+    { label: "Kondisi Kemunculan", value: item.occurrence_condition },
+    { label: "Deskripsi Gejala", value: <DetailParagraph>{item.symptom_description}</DetailParagraph>, fullWidth: true },
+  ];
+
   return (
     <div className="p-6 animate-fade-in">
       <PageHeader title="Symptoms" description="Kelola data gejala kerusakan" icon={<Stethoscope className="h-5 w-5" />} />
-      <DataTable data={symptoms} columns={columns} isLoading={isLoading} idKey="symptom_id" onAdd={() => setIsFormOpen(true)} onEdit={handleEdit} onDelete={(item) => deleteMutation.mutate(item.symptom_id)} />
+      
+      <DataTable 
+        data={symptoms} 
+        columns={columns} 
+        isLoading={isLoading} 
+        idKey="symptom_id" 
+        onAdd={() => setIsFormOpen(true)} 
+        onEdit={handleEdit} 
+        onDelete={(item) => deleteMutation.mutate(item.symptom_id)}
+        onRowClick={setSelectedItem}
+      />
+
+      <DetailSheet
+        open={!!selectedItem}
+        onOpenChange={(open) => !open && setSelectedItem(null)}
+        title={selectedItem?.symptom_description.substring(0, 50) + (selectedItem?.symptom_description && selectedItem.symptom_description.length > 50 ? "..." : "") || ""}
+        subtitle="Detail Gejala"
+        fields={selectedItem ? getDetailFields(selectedItem) : []}
+        badge={selectedItem ? { label: selectedItem.symptom_type } : undefined}
+      />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Symptom" : "Tambah Symptom"} useSheet>
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DataTable, Column, SeverityBadge, CategoryBadge } from "@/components/crud/DataTable";
 import { FormDialog } from "@/components/crud/FormDialog";
 import { PageHeader } from "@/components/crud/PageHeader";
+import { DetailSheet, DetailField, DetailParagraph } from "@/components/crud/DetailSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,7 @@ export default function ProblemsPage() {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Problem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<Problem | null>(null);
   const [formData, setFormData] = useState({
     problem_code: "",
     problem_name: "",
@@ -135,10 +137,43 @@ export default function ProblemsPage() {
     { key: "description", header: "Deskripsi", className: "hidden xl:table-cell max-w-xs", render: (item) => <span className="line-clamp-2 text-sm text-muted-foreground">{item.description || "-"}</span> },
   ];
 
+  const getDetailFields = (item: Problem): DetailField[] => [
+    { label: "Kode Problem", value: <code className="px-2 py-1 bg-muted rounded font-mono">{item.problem_code}</code> },
+    { label: "Nama Problem", value: item.problem_name },
+    { label: "Kategori Sistem", value: <CategoryBadge category={item.system_category} /> },
+    { label: "Tingkat Keparahan", value: <SeverityBadge level={item.severity_level} /> },
+    { label: "Deskripsi", value: item.description ? <DetailParagraph>{item.description}</DetailParagraph> : null, fullWidth: true },
+  ];
+
   return (
     <div className="p-6 animate-fade-in">
       <PageHeader title="Problems" description="Kelola master data permasalahan kendaraan" icon={<AlertTriangle className="h-5 w-5" />} />
-      <DataTable data={problems} columns={columns} isLoading={isLoading} idKey="problem_id" onAdd={() => setIsFormOpen(true)} onEdit={handleEdit} onDelete={(item) => deleteMutation.mutate(item.problem_id)} searchPlaceholder="Cari problem..." />
+      
+      <DataTable 
+        data={problems} 
+        columns={columns} 
+        isLoading={isLoading} 
+        idKey="problem_id" 
+        onAdd={() => setIsFormOpen(true)} 
+        onEdit={handleEdit} 
+        onDelete={(item) => deleteMutation.mutate(item.problem_id)} 
+        onRowClick={setSelectedItem}
+        searchPlaceholder="Cari problem..." 
+      />
+
+      <DetailSheet
+        open={!!selectedItem}
+        onOpenChange={(open) => !open && setSelectedItem(null)}
+        title={selectedItem?.problem_name || ""}
+        subtitle={`Kode: ${selectedItem?.problem_code || ""}`}
+        fields={selectedItem ? getDetailFields(selectedItem) : []}
+        badge={selectedItem ? { 
+          label: selectedItem.severity_level,
+          className: selectedItem.severity_level === "Critical" ? "bg-destructive text-destructive-foreground" :
+                     selectedItem.severity_level === "High" ? "bg-orange-500 text-white" :
+                     selectedItem.severity_level === "Medium" ? "bg-yellow-500 text-black" : ""
+        } : undefined}
+      />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Problem" : "Tambah Problem"} useSheet>
         <form onSubmit={handleSubmit} className="space-y-4">

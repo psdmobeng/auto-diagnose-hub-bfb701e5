@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DataTable, Column, CategoryBadge } from "@/components/crud/DataTable";
 import { FormDialog } from "@/components/crud/FormDialog";
 import { PageHeader } from "@/components/crud/PageHeader";
+import { DetailSheet, DetailField, DetailParagraph } from "@/components/crud/DetailSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,7 @@ export default function SolutionsPage() {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Solution | null>(null);
+  const [selectedItem, setSelectedItem] = useState<Solution | null>(null);
   const [formData, setFormData] = useState({ problem_id: "", solution_step: "", step_order: 1, estimated_time: "", difficulty_level: "Medium", special_notes: "", is_ai_generated: false });
 
   const { data: solutions = [], isLoading } = useQuery({
@@ -102,10 +104,39 @@ export default function SolutionsPage() {
     { key: "is_ai_generated", header: "", className: "w-8", render: (item) => item.is_ai_generated ? <Sparkles className="h-4 w-4 text-primary" /> : null },
   ];
 
+  const getDetailFields = (item: Solution): DetailField[] => [
+    { label: "Problem Terkait", value: item.problems ? `${item.problems.problem_code} - ${item.problems.problem_name}` : null },
+    { label: "Urutan Langkah", value: <Badge variant="outline" className="text-lg">Step #{item.step_order}</Badge> },
+    { label: "Tingkat Kesulitan", value: item.difficulty_level ? <CategoryBadge category={item.difficulty_level} /> : null },
+    { label: "Estimasi Waktu", value: item.estimated_time ? `${item.estimated_time} menit` : null },
+    { label: "AI Generated", value: item.is_ai_generated ? <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Ya</div> : "Tidak" },
+    { label: "Langkah Solusi", value: <DetailParagraph>{item.solution_step}</DetailParagraph>, fullWidth: true },
+    { label: "Catatan Khusus", value: item.special_notes ? <DetailParagraph>{item.special_notes}</DetailParagraph> : null, fullWidth: true },
+  ];
+
   return (
     <div className="p-6 animate-fade-in">
       <PageHeader title="Solutions" description="Kelola langkah-langkah solusi perbaikan" icon={<Wrench className="h-5 w-5" />} />
-      <DataTable data={solutions} columns={columns} isLoading={isLoading} idKey="solution_id" onAdd={() => setIsFormOpen(true)} onEdit={handleEdit} onDelete={(item) => deleteMutation.mutate(item.solution_id)} />
+      
+      <DataTable 
+        data={solutions} 
+        columns={columns} 
+        isLoading={isLoading} 
+        idKey="solution_id" 
+        onAdd={() => setIsFormOpen(true)} 
+        onEdit={handleEdit} 
+        onDelete={(item) => deleteMutation.mutate(item.solution_id)}
+        onRowClick={setSelectedItem}
+      />
+
+      <DetailSheet
+        open={!!selectedItem}
+        onOpenChange={(open) => !open && setSelectedItem(null)}
+        title={`Step #${selectedItem?.step_order}: ${selectedItem?.solution_step.substring(0, 40)}...`}
+        subtitle="Detail Solusi"
+        fields={selectedItem ? getDetailFields(selectedItem) : []}
+        badge={selectedItem?.difficulty_level ? { label: selectedItem.difficulty_level } : undefined}
+      />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Solution" : "Tambah Solution"} useSheet>
         <form onSubmit={handleSubmit} className="space-y-4">

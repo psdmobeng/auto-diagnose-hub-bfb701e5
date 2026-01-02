@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DataTable, Column, CategoryBadge } from "@/components/crud/DataTable";
 import { FormDialog } from "@/components/crud/FormDialog";
 import { PageHeader } from "@/components/crud/PageHeader";
+import { DetailSheet, DetailField, DetailParagraph } from "@/components/crud/DetailSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +31,7 @@ export default function DTCCodesPage() {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<DTCCode | null>(null);
+  const [selectedItem, setSelectedItem] = useState<DTCCode | null>(null);
   const [formData, setFormData] = useState({ problem_id: "", dtc_code: "", dtc_type: "Powertrain", dtc_description: "", obd_standard: "OBD-II" });
 
   const { data: dtcCodes = [], isLoading } = useQuery({
@@ -90,10 +92,38 @@ export default function DTCCodesPage() {
     { key: "obd_standard", header: "Standard", className: "hidden md:table-cell" },
   ];
 
+  const getDetailFields = (item: DTCCode): DetailField[] => [
+    { label: "Kode DTC", value: <code className="px-3 py-1.5 bg-primary/10 text-primary rounded font-mono font-bold text-lg">{item.dtc_code}</code> },
+    { label: "Tipe DTC", value: <CategoryBadge category={item.dtc_type} /> },
+    { label: "Problem Terkait", value: item.problems ? `${item.problems.problem_code} - ${item.problems.problem_name}` : null },
+    { label: "Standar OBD", value: item.obd_standard },
+    { label: "Deskripsi Lengkap", value: item.dtc_description ? <DetailParagraph>{item.dtc_description}</DetailParagraph> : null, fullWidth: true },
+  ];
+
   return (
     <div className="p-6 animate-fade-in">
       <PageHeader title="DTC Codes" description="Kelola database kode diagnostik" icon={<Code className="h-5 w-5" />} />
-      <DataTable data={dtcCodes} columns={columns} isLoading={isLoading} idKey="dtc_id" onAdd={() => setIsFormOpen(true)} onEdit={handleEdit} onDelete={(item) => deleteMutation.mutate(item.dtc_id)} searchPlaceholder="Cari DTC code..." />
+      
+      <DataTable 
+        data={dtcCodes} 
+        columns={columns} 
+        isLoading={isLoading} 
+        idKey="dtc_id" 
+        onAdd={() => setIsFormOpen(true)} 
+        onEdit={handleEdit} 
+        onDelete={(item) => deleteMutation.mutate(item.dtc_id)} 
+        onRowClick={setSelectedItem}
+        searchPlaceholder="Cari DTC code..." 
+      />
+
+      <DetailSheet
+        open={!!selectedItem}
+        onOpenChange={(open) => !open && setSelectedItem(null)}
+        title={selectedItem?.dtc_code || ""}
+        subtitle="Detail Kode DTC"
+        fields={selectedItem ? getDetailFields(selectedItem) : []}
+        badge={selectedItem ? { label: selectedItem.dtc_type } : undefined}
+      />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit DTC Code" : "Tambah DTC Code"} useSheet>
         <form onSubmit={handleSubmit} className="space-y-4">
