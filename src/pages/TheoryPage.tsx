@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DataTable, Column } from "@/components/crud/DataTable";
 import { FormDialog } from "@/components/crud/FormDialog";
 import { PageHeader } from "@/components/crud/PageHeader";
+import { DetailSheet, DetailField, DetailParagraph, DetailSection } from "@/components/crud/DetailSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +32,7 @@ export default function TheoryPage() {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<TechnicalTheory | null>(null);
+  const [selectedItem, setSelectedItem] = useState<TechnicalTheory | null>(null);
   const [formData, setFormData] = useState({ problem_id: "", theory_title: "", technical_explanation: "", system_operation: "", failure_mechanism: "", preventive_measures: "", reference_links: "", is_ai_generated: false });
 
   const { data: theories = [], isLoading } = useQuery({
@@ -84,10 +86,40 @@ export default function TheoryPage() {
     { key: "is_ai_generated", header: "", className: "w-8", render: (item) => item.is_ai_generated ? <Sparkles className="h-4 w-4 text-primary" /> : null },
   ];
 
+  const getDetailFields = (item: TechnicalTheory): DetailField[] => [
+    { label: "Judul Teori", value: item.theory_title },
+    { label: "Problem Terkait", value: item.problems ? `${item.problems.problem_code} - ${item.problems.problem_name}` : null },
+    { label: "AI Generated", value: item.is_ai_generated ? <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Ya</div> : "Tidak" },
+    { label: "Penjelasan Teknis", value: item.technical_explanation ? <DetailParagraph>{item.technical_explanation}</DetailParagraph> : null, fullWidth: true },
+    { label: "Cara Kerja Sistem", value: item.system_operation ? <DetailParagraph>{item.system_operation}</DetailParagraph> : null, fullWidth: true },
+    { label: "Mekanisme Kegagalan", value: item.failure_mechanism ? <DetailParagraph>{item.failure_mechanism}</DetailParagraph> : null, fullWidth: true },
+    { label: "Langkah Pencegahan", value: item.preventive_measures ? <DetailParagraph>{item.preventive_measures}</DetailParagraph> : null, fullWidth: true },
+    { label: "Referensi", value: item.reference_links, fullWidth: true },
+  ];
+
   return (
     <div className="p-6 animate-fade-in">
       <PageHeader title="Technical Theory" description="Kelola penjelasan teori teknis" icon={<BookOpen className="h-5 w-5" />} />
-      <DataTable data={theories} columns={columns} isLoading={isLoading} idKey="theory_id" onAdd={() => setIsFormOpen(true)} onEdit={handleEdit} onDelete={(item) => deleteMutation.mutate(item.theory_id)} />
+      
+      <DataTable 
+        data={theories} 
+        columns={columns} 
+        isLoading={isLoading} 
+        idKey="theory_id" 
+        onAdd={() => setIsFormOpen(true)} 
+        onEdit={handleEdit} 
+        onDelete={(item) => deleteMutation.mutate(item.theory_id)}
+        onRowClick={setSelectedItem}
+      />
+
+      <DetailSheet
+        open={!!selectedItem}
+        onOpenChange={(open) => !open && setSelectedItem(null)}
+        title={selectedItem?.theory_title || ""}
+        subtitle="Teori Teknis"
+        fields={selectedItem ? getDetailFields(selectedItem) : []}
+        badge={selectedItem?.is_ai_generated ? { label: "AI Generated", className: "bg-primary text-primary-foreground" } : undefined}
+      />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Theory" : "Tambah Theory"} useSheet>
         <form onSubmit={handleSubmit} className="space-y-4">

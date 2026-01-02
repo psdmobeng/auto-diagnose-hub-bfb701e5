@@ -2,15 +2,17 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { DataTable, Column, SeverityBadge } from "@/components/crud/DataTable";
+import { DataTable, Column, SeverityBadge, CategoryBadge } from "@/components/crud/DataTable";
 import { FormDialog } from "@/components/crud/FormDialog";
 import { PageHeader } from "@/components/crud/PageHeader";
+import { DetailSheet, DetailField, DetailParagraph } from "@/components/crud/DetailSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shield } from "lucide-react";
+import { Shield, AlertTriangle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface SafetyPrecaution {
   safety_id: string;
@@ -33,6 +35,7 @@ export default function SafetyPage() {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SafetyPrecaution | null>(null);
+  const [selectedItem, setSelectedItem] = useState<SafetyPrecaution | null>(null);
   const [formData, setFormData] = useState({ problem_id: "", precaution_type: "", warning_level: "Caution", safety_description: "", ppe_required: "", hazard_type: "", emergency_procedure: "" });
 
   const { data: safetyItems = [], isLoading } = useQuery({
@@ -86,10 +89,45 @@ export default function SafetyPage() {
     { key: "hazard_type", header: "Hazard", className: "hidden md:table-cell" },
   ];
 
+  const getWarningBadge = (level: string | null) => {
+    if (level === "Danger") return { label: "DANGER", className: "bg-destructive text-destructive-foreground" };
+    if (level === "Warning") return { label: "WARNING", className: "bg-orange-500 text-white" };
+    return { label: "CAUTION", className: "bg-yellow-500 text-black" };
+  };
+
+  const getDetailFields = (item: SafetyPrecaution): DetailField[] => [
+    { label: "Problem Terkait", value: item.problems ? `${item.problems.problem_code} - ${item.problems.problem_name}` : null },
+    { label: "Tingkat Peringatan", value: <Badge className={getWarningBadge(item.warning_level).className}>{item.warning_level}</Badge> },
+    { label: "Tipe Precaution", value: item.precaution_type },
+    { label: "Tipe Bahaya", value: item.hazard_type ? <Badge variant="outline"><AlertTriangle className="h-3 w-3 mr-1" />{item.hazard_type}</Badge> : null },
+    { label: "PPE yang Diperlukan", value: item.ppe_required },
+    { label: "Deskripsi Keselamatan", value: <DetailParagraph>{item.safety_description}</DetailParagraph>, fullWidth: true },
+    { label: "Prosedur Darurat", value: item.emergency_procedure ? <DetailParagraph>{item.emergency_procedure}</DetailParagraph> : null, fullWidth: true },
+  ];
+
   return (
     <div className="p-6 animate-fade-in">
       <PageHeader title="Safety Precautions" description="Kelola peringatan keselamatan" icon={<Shield className="h-5 w-5" />} />
-      <DataTable data={safetyItems} columns={columns} isLoading={isLoading} idKey="safety_id" onAdd={() => setIsFormOpen(true)} onEdit={handleEdit} onDelete={(item) => deleteMutation.mutate(item.safety_id)} />
+      
+      <DataTable 
+        data={safetyItems} 
+        columns={columns} 
+        isLoading={isLoading} 
+        idKey="safety_id" 
+        onAdd={() => setIsFormOpen(true)} 
+        onEdit={handleEdit} 
+        onDelete={(item) => deleteMutation.mutate(item.safety_id)}
+        onRowClick={setSelectedItem}
+      />
+
+      <DetailSheet
+        open={!!selectedItem}
+        onOpenChange={(open) => !open && setSelectedItem(null)}
+        title="Peringatan Keselamatan"
+        subtitle={selectedItem?.problems?.problem_code || ""}
+        fields={selectedItem ? getDetailFields(selectedItem) : []}
+        badge={selectedItem ? getWarningBadge(selectedItem.warning_level) : undefined}
+      />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Safety" : "Tambah Safety"} useSheet>
         <form onSubmit={handleSubmit} className="space-y-4">

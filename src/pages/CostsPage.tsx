@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DataTable, Column } from "@/components/crud/DataTable";
 import { FormDialog } from "@/components/crud/FormDialog";
 import { PageHeader } from "@/components/crud/PageHeader";
+import { DetailSheet, DetailField } from "@/components/crud/DetailSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +33,7 @@ export default function CostsPage() {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CostEstimation | null>(null);
+  const [selectedItem, setSelectedItem] = useState<CostEstimation | null>(null);
   const [formData, setFormData] = useState({ problem_id: "", part_cost_min: "", part_cost_max: "", labor_cost: "", currency: "IDR" });
 
   const { data: costs = [], isLoading } = useQuery({
@@ -98,10 +100,38 @@ export default function CostsPage() {
     { key: "total_cost_estimate", header: "Total Est.", render: (item) => <span className="font-semibold text-primary">{formatCurrency(item.total_cost_estimate, item.currency || "IDR")}</span> },
   ];
 
+  const getDetailFields = (item: CostEstimation): DetailField[] => [
+    { label: "Problem", value: item.problems ? `${item.problems.problem_code} - ${item.problems.problem_name}` : null },
+    { label: "Mata Uang", value: item.currency },
+    { label: "Biaya Part (Minimum)", value: <span className="text-lg font-medium">{formatCurrency(item.part_cost_min, item.currency || "IDR")}</span> },
+    { label: "Biaya Part (Maximum)", value: <span className="text-lg font-medium">{formatCurrency(item.part_cost_max, item.currency || "IDR")}</span> },
+    { label: "Biaya Tenaga Kerja", value: <span className="text-lg font-medium">{formatCurrency(item.labor_cost, item.currency || "IDR")}</span> },
+    { label: "Total Estimasi", value: <span className="text-2xl font-bold text-primary">{formatCurrency(item.total_cost_estimate, item.currency || "IDR")}</span>, fullWidth: true },
+  ];
+
   return (
     <div className="p-6 animate-fade-in">
       <PageHeader title="Cost Estimation" description="Kelola estimasi biaya perbaikan" icon={<DollarSign className="h-5 w-5" />} />
-      <DataTable data={costs} columns={columns} isLoading={isLoading} idKey="cost_id" onAdd={() => setIsFormOpen(true)} onEdit={handleEdit} onDelete={(item) => deleteMutation.mutate(item.cost_id)} />
+      
+      <DataTable 
+        data={costs} 
+        columns={columns} 
+        isLoading={isLoading} 
+        idKey="cost_id" 
+        onAdd={() => setIsFormOpen(true)} 
+        onEdit={handleEdit} 
+        onDelete={(item) => deleteMutation.mutate(item.cost_id)}
+        onRowClick={setSelectedItem}
+      />
+
+      <DetailSheet
+        open={!!selectedItem}
+        onOpenChange={(open) => !open && setSelectedItem(null)}
+        title="Estimasi Biaya"
+        subtitle={selectedItem?.problems?.problem_name || ""}
+        fields={selectedItem ? getDetailFields(selectedItem) : []}
+        badge={selectedItem ? { label: selectedItem.currency || "IDR" } : undefined}
+      />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Cost" : "Tambah Cost"} useSheet>
         <form onSubmit={handleSubmit} className="space-y-4">
