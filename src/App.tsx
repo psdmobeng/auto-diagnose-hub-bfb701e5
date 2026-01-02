@@ -20,6 +20,7 @@ import CostsPage from "./pages/CostsPage";
 import ToolsPage from "./pages/ToolsPage";
 import RelationsPage from "./pages/RelationsPage";
 import SearchPage from "./pages/SearchPage";
+import AdminPage from "./pages/AdminPage";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import NotFound from "./pages/NotFound";
 
@@ -51,6 +52,7 @@ const App = () => (
               <Route path="/relations" element={<RelationsPage />} />
               <Route path="/safety" element={<SafetyPage />} />
               <Route path="/costs" element={<CostsPage />} />
+              <Route path="/admin" element={<AdminPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
