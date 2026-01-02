@@ -136,6 +136,7 @@ export default function SolutionsPage() {
         subtitle="Detail Solusi"
         fields={selectedItem ? getDetailFields(selectedItem) : []}
         badge={selectedItem?.difficulty_level ? { label: selectedItem.difficulty_level } : undefined}
+        onEdit={selectedItem ? () => { handleEdit(selectedItem); setSelectedItem(null); } : undefined}
       />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Solution" : "Tambah Solution"} useSheet>

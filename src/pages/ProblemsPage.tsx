@@ -173,6 +173,7 @@ export default function ProblemsPage() {
                      selectedItem.severity_level === "High" ? "bg-orange-500 text-white" :
                      selectedItem.severity_level === "Medium" ? "bg-yellow-500 text-black" : ""
         } : undefined}
+        onEdit={selectedItem ? () => { handleEdit(selectedItem); setSelectedItem(null); } : undefined}
       />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Problem" : "Tambah Problem"} useSheet>

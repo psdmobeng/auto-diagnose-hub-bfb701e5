@@ -132,6 +132,7 @@ export default function SymptomsPage() {
         subtitle="Detail Gejala"
         fields={selectedItem ? getDetailFields(selectedItem) : []}
         badge={selectedItem ? { label: selectedItem.symptom_type } : undefined}
+        onEdit={selectedItem ? () => { handleEdit(selectedItem); setSelectedItem(null); } : undefined}
       />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Symptom" : "Tambah Symptom"} useSheet>

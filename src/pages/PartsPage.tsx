@@ -122,6 +122,7 @@ export default function PartsPage() {
         subtitle="Detail Komponen"
         fields={selectedItem ? getDetailFields(selectedItem) : []}
         badge={selectedItem?.component_type ? { label: selectedItem.component_type } : undefined}
+        onEdit={selectedItem ? () => { handleEdit(selectedItem); setSelectedItem(null); } : undefined}
       />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Part/Factor" : "Tambah Part/Factor"} useSheet>

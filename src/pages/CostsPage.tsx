@@ -131,6 +131,7 @@ export default function CostsPage() {
         subtitle={selectedItem?.problems?.problem_name || ""}
         fields={selectedItem ? getDetailFields(selectedItem) : []}
         badge={selectedItem ? { label: selectedItem.currency || "IDR" } : undefined}
+        onEdit={selectedItem ? () => { handleEdit(selectedItem); setSelectedItem(null); } : undefined}
       />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Cost" : "Tambah Cost"} useSheet>

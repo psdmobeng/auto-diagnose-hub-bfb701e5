@@ -123,6 +123,7 @@ export default function DTCCodesPage() {
         subtitle="Detail Kode DTC"
         fields={selectedItem ? getDetailFields(selectedItem) : []}
         badge={selectedItem ? { label: selectedItem.dtc_type } : undefined}
+        onEdit={selectedItem ? () => { handleEdit(selectedItem); setSelectedItem(null); } : undefined}
       />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit DTC Code" : "Tambah DTC Code"} useSheet>

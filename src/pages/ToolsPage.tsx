@@ -169,6 +169,7 @@ export default function ToolsPage() {
         subtitle="Detail Tool"
         fields={selectedItem ? getDetailFields(selectedItem) : []}
         badge={selectedItem?.tool_category ? { label: selectedItem.tool_category } : undefined}
+        onEdit={selectedItem ? () => { handleEdit(selectedItem); setSelectedItem(null); } : undefined}
       />
 
       <FormDialog

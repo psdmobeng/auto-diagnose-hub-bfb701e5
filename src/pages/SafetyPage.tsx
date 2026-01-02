@@ -127,6 +127,7 @@ export default function SafetyPage() {
         subtitle={selectedItem?.problems?.problem_code || ""}
         fields={selectedItem ? getDetailFields(selectedItem) : []}
         badge={selectedItem ? getWarningBadge(selectedItem.warning_level) : undefined}
+        onEdit={selectedItem ? () => { handleEdit(selectedItem); setSelectedItem(null); } : undefined}
       />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Safety" : "Tambah Safety"} useSheet>
