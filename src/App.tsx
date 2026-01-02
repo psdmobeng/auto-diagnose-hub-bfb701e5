@@ -6,6 +6,17 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import VehiclesPage from "./pages/VehiclesPage";
+import ProblemsPage from "./pages/ProblemsPage";
+import SymptomsPage from "./pages/SymptomsPage";
+import DTCCodesPage from "./pages/DTCCodesPage";
+import SensorsPage from "./pages/SensorsPage";
+import ActuatorsPage from "./pages/ActuatorsPage";
+import PartsPage from "./pages/PartsPage";
+import SolutionsPage from "./pages/SolutionsPage";
+import TheoryPage from "./pages/TheoryPage";
+import SafetyPage from "./pages/SafetyPage";
+import CostsPage from "./pages/CostsPage";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import NotFound from "./pages/NotFound";
 
@@ -24,19 +35,19 @@ const App = () => (
             <Route element={<DashboardLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/search" element={<Dashboard />} />
-              <Route path="/vehicles" element={<Dashboard />} />
-              <Route path="/problems" element={<Dashboard />} />
-              <Route path="/symptoms" element={<Dashboard />} />
-              <Route path="/dtc-codes" element={<Dashboard />} />
-              <Route path="/sensors" element={<Dashboard />} />
-              <Route path="/actuators" element={<Dashboard />} />
-              <Route path="/parts" element={<Dashboard />} />
-              <Route path="/solutions" element={<Dashboard />} />
-              <Route path="/theory" element={<Dashboard />} />
+              <Route path="/vehicles" element={<VehiclesPage />} />
+              <Route path="/problems" element={<ProblemsPage />} />
+              <Route path="/symptoms" element={<SymptomsPage />} />
+              <Route path="/dtc-codes" element={<DTCCodesPage />} />
+              <Route path="/sensors" element={<SensorsPage />} />
+              <Route path="/actuators" element={<ActuatorsPage />} />
+              <Route path="/parts" element={<PartsPage />} />
+              <Route path="/solutions" element={<SolutionsPage />} />
+              <Route path="/theory" element={<TheoryPage />} />
               <Route path="/tools" element={<Dashboard />} />
               <Route path="/relations" element={<Dashboard />} />
-              <Route path="/safety" element={<Dashboard />} />
-              <Route path="/costs" element={<Dashboard />} />
+              <Route path="/safety" element={<SafetyPage />} />
+              <Route path="/costs" element={<CostsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
