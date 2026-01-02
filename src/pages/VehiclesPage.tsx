@@ -175,6 +175,7 @@ export default function VehiclesPage() {
         subtitle="Detail Kendaraan"
         fields={selectedItem ? getDetailFields(selectedItem) : []}
         badge={selectedItem ? { label: selectedItem.market_region || "Indonesia" } : undefined}
+        onEdit={selectedItem ? () => { handleEdit(selectedItem); setSelectedItem(null); } : undefined}
       />
 
       <FormDialog

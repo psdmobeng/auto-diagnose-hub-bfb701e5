@@ -120,6 +120,7 @@ export default function ActuatorsPage() {
         subtitle="Detail Actuator"
         fields={selectedItem ? getDetailFields(selectedItem) : []}
         badge={selectedItem?.actuator_type ? { label: selectedItem.actuator_type } : undefined}
+        onEdit={selectedItem ? () => { handleEdit(selectedItem); setSelectedItem(null); } : undefined}
       />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Actuator" : "Tambah Actuator"} useSheet>

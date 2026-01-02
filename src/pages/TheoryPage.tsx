@@ -119,6 +119,7 @@ export default function TheoryPage() {
         subtitle="Teori Teknis"
         fields={selectedItem ? getDetailFields(selectedItem) : []}
         badge={selectedItem?.is_ai_generated ? { label: "AI Generated", className: "bg-primary text-primary-foreground" } : undefined}
+        onEdit={selectedItem ? () => { handleEdit(selectedItem); setSelectedItem(null); } : undefined}
       />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Theory" : "Tambah Theory"} useSheet>

@@ -8,6 +8,8 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface DetailField {
@@ -28,6 +30,7 @@ interface DetailSheetProps {
     variant?: "default" | "secondary" | "destructive" | "outline";
     className?: string;
   };
+  onEdit?: () => void;
 }
 
 export function DetailSheet({
@@ -37,6 +40,7 @@ export function DetailSheet({
   subtitle,
   fields,
   badge,
+  onEdit,
 }: DetailSheetProps) {
   const visibleFields = fields.filter((f) => !f.hidden);
 
@@ -45,7 +49,7 @@ export function DetailSheet({
       <SheetContent className="sm:max-w-lg">
         <SheetHeader className="pb-4">
           <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
+            <div className="space-y-1 flex-1">
               <SheetTitle className="text-xl">{title}</SheetTitle>
               {subtitle && (
                 <SheetDescription className="text-sm">
@@ -53,14 +57,22 @@ export function DetailSheet({
                 </SheetDescription>
               )}
             </div>
-            {badge && (
-              <Badge
-                variant={badge.variant || "secondary"}
-                className={cn("shrink-0", badge.className)}
-              >
-                {badge.label}
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {badge && (
+                <Badge
+                  variant={badge.variant || "secondary"}
+                  className={cn("shrink-0", badge.className)}
+                >
+                  {badge.label}
+                </Badge>
+              )}
+              {onEdit && (
+                <Button size="sm" onClick={onEdit}>
+                  <Pencil className="h-4 w-4 mr-1.5" />
+                  Edit
+                </Button>
+              )}
+            </div>
           </div>
         </SheetHeader>
         <Separator className="mb-4" />

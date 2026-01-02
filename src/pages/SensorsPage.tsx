@@ -117,6 +117,7 @@ export default function SensorsPage() {
         title={selectedItem?.sensor_name || ""}
         subtitle="Detail Sensor"
         fields={selectedItem ? getDetailFields(selectedItem) : []}
+        onEdit={selectedItem ? () => { handleEdit(selectedItem); setSelectedItem(null); } : undefined}
       />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Sensor" : "Tambah Sensor"} useSheet>
