@@ -75,18 +75,30 @@ export default function AdminPage() {
   const { data: users = [], isLoading: loadingUsers } = useQuery({
     queryKey: ["adminUsers"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Get user roles first
+      const { data: rolesData, error: rolesError } = await supabase
         .from("user_roles")
-        .select(`
-          user_id,
-          role,
-          created_at,
-          profile:profiles!user_roles_user_id_fkey(full_name)
-        `)
+        .select("user_id, role, created_at")
         .order("created_at", { ascending: false });
       
-      if (error) throw error;
-      return (data || []) as unknown as UserWithRole[];
+      if (rolesError) throw rolesError;
+      
+      // Get profiles separately
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("user_id, full_name");
+      
+      // Merge the data
+      const profilesMap = new Map(
+        (profilesData || []).map(p => [p.user_id, p.full_name])
+      );
+      
+      return (rolesData || []).map(r => ({
+        user_id: r.user_id,
+        role: r.role as AppRole,
+        created_at: r.created_at,
+        profile: { full_name: profilesMap.get(r.user_id) || null }
+      }));
     },
     enabled: isAdmin === true,
   });
