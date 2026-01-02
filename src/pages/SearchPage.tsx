@@ -1,26 +1,115 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Search, AlertTriangle, Wrench, BookOpen, Shield, DollarSign, Cpu, Cog } from "lucide-react";
+import { Search, AlertTriangle, Wrench, BookOpen, Shield, DollarSign, Cpu, Cog, TrendingUp, Clock, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { translateToKeywords } from "@/lib/searchKeywords";
+import { toast } from "sonner";
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
+  const [translatedKeywords, setTranslatedKeywords] = useState<string[]>([]);
+  const queryClient = useQueryClient();
+
+  // Fetch popular searches
+  const { data: popularSearches } = useQuery({
+    queryKey: ["popular-searches"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("search_queries")
+        .select("*")
+        .order("search_count", { ascending: false })
+        .limit(10);
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch recent searches without results (for developer reference)
+  const { data: noResultSearches } = useQuery({
+    queryKey: ["no-result-searches"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("search_queries")
+        .select("*")
+        .eq("has_results", false)
+        .order("search_count", { ascending: false })
+        .limit(10);
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Track search mutation
+  const trackSearchMutation = useMutation({
+    mutationFn: async ({ query, keywords, hasResults }: { query: string; keywords: string[]; hasResults: boolean }) => {
+      // First try to get existing record
+      const { data: existing } = await supabase
+        .from("search_queries")
+        .select("*")
+        .ilike("original_query", query)
+        .single();
+
+      if (existing) {
+        // Update existing
+        const { error } = await supabase
+          .from("search_queries")
+          .update({
+            search_count: existing.search_count + 1,
+            has_results: hasResults,
+            last_searched_at: new Date().toISOString(),
+            translated_keywords: keywords,
+          })
+          .eq("id", existing.id);
+        
+        if (error) throw error;
+      } else {
+        // Insert new
+        const { error } = await supabase
+          .from("search_queries")
+          .insert({
+            original_query: query,
+            translated_keywords: keywords,
+            has_results: hasResults,
+          });
+        
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["popular-searches"] });
+      queryClient.invalidateQueries({ queryKey: ["no-result-searches"] });
+    },
+  });
 
   const { data: searchResults, isLoading } = useQuery({
-    queryKey: ["diagnostic-search", activeSearch],
+    queryKey: ["diagnostic-search", activeSearch, translatedKeywords],
     queryFn: async () => {
       if (!activeSearch) return null;
 
-      const searchTerm = `%${activeSearch}%`;
+      // Build search conditions from translated keywords
+      const searchConditions = translatedKeywords.map(kw => `%${kw}%`);
+      
+      // Create OR conditions for each keyword
+      const buildOrCondition = (fields: string[]) => {
+        const conditions: string[] = [];
+        searchConditions.forEach(term => {
+          fields.forEach(field => {
+            conditions.push(`${field}.ilike.${term}`);
+          });
+        });
+        return conditions.join(",");
+      };
 
-      // Search across multiple tables
+      // Search across multiple tables with translated keywords
       const [problemsRes, symptomsRes, dtcRes, sensorsRes, actuatorsRes] = await Promise.all([
         supabase
           .from("problems")
@@ -36,43 +125,73 @@ export default function SearchPage() {
             safety_precautions(*),
             cost_estimation(*)
           `)
-          .or(`problem_name.ilike.${searchTerm},description.ilike.${searchTerm},problem_code.ilike.${searchTerm}`)
+          .or(buildOrCondition(["problem_name", "description", "problem_code"]))
           .limit(10),
         supabase
           .from("symptoms")
           .select(`*, problems(*)`)
-          .or(`symptom_description.ilike.${searchTerm},occurrence_condition.ilike.${searchTerm}`)
+          .or(buildOrCondition(["symptom_description", "occurrence_condition"]))
           .limit(10),
         supabase
           .from("dtc_codes")
           .select(`*, problems(*)`)
-          .or(`dtc_code.ilike.${searchTerm},dtc_description.ilike.${searchTerm}`)
+          .or(buildOrCondition(["dtc_code", "dtc_description"]))
           .limit(10),
         supabase
           .from("sensors")
           .select(`*, problems(*)`)
-          .or(`sensor_name.ilike.${searchTerm},failure_mode.ilike.${searchTerm}`)
+          .or(buildOrCondition(["sensor_name", "failure_mode"]))
           .limit(10),
         supabase
           .from("actuators")
           .select(`*, problems(*)`)
-          .or(`actuator_name.ilike.${searchTerm},failure_symptoms.ilike.${searchTerm}`)
+          .or(buildOrCondition(["actuator_name", "failure_symptoms"]))
           .limit(10),
       ]);
 
-      return {
+      const results = {
         problems: problemsRes.data || [],
         symptoms: symptomsRes.data || [],
         dtcCodes: dtcRes.data || [],
         sensors: sensorsRes.data || [],
         actuators: actuatorsRes.data || [],
       };
+
+      // Track search with results status
+      const hasResults = 
+        results.problems.length > 0 ||
+        results.symptoms.length > 0 ||
+        results.dtcCodes.length > 0 ||
+        results.sensors.length > 0 ||
+        results.actuators.length > 0;
+
+      trackSearchMutation.mutate({
+        query: activeSearch,
+        keywords: translatedKeywords,
+        hasResults,
+      });
+
+      return results;
     },
-    enabled: !!activeSearch,
+    enabled: !!activeSearch && translatedKeywords.length > 0,
   });
 
   const handleSearch = () => {
+    if (!searchQuery.trim()) return;
+    
+    // Translate natural language to keywords
+    const keywords = translateToKeywords(searchQuery);
+    setTranslatedKeywords(keywords);
     setActiveSearch(searchQuery);
+    
+    toast.info(`Mencari dengan kata kunci: ${keywords.slice(0, 5).join(", ")}${keywords.length > 5 ? "..." : ""}`);
+  };
+
+  const handleQuickSearch = (query: string) => {
+    setSearchQuery(query);
+    const keywords = translateToKeywords(query);
+    setTranslatedKeywords(keywords);
+    setActiveSearch(query);
   };
 
   const getSeverityColor = (level: string) => {
@@ -89,7 +208,7 @@ export default function SearchPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">AI Diagnostic Search</h1>
         <p className="text-muted-foreground mt-1">
-          Cari masalah kendaraan berdasarkan gejala, kode DTC, atau deskripsi masalah
+          Cari masalah kendaraan dengan bahasa natural - sistem akan menerjemahkan ke kata kunci teknis
         </p>
       </div>
 
@@ -99,7 +218,7 @@ export default function SearchPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Masukkan gejala, kode DTC, atau deskripsi masalah..."
+                placeholder="Contoh: 'mesin bergetar saat idle' atau 'AC tidak dingin' atau 'P0300'..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -111,8 +230,101 @@ export default function SearchPage() {
               Cari
             </Button>
           </div>
+
+          {translatedKeywords.length > 0 && activeSearch && (
+            <div className="mt-3 flex flex-wrap gap-1">
+              <span className="text-xs text-muted-foreground">Kata kunci:</span>
+              {translatedKeywords.slice(0, 8).map((kw, i) => (
+                <Badge key={i} variant="secondary" className="text-xs">
+                  {kw}
+                </Badge>
+              ))}
+              {translatedKeywords.length > 8 && (
+                <Badge variant="outline" className="text-xs">
+                  +{translatedKeywords.length - 8} lainnya
+                </Badge>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Popular Searches & No Result Searches */}
+      {!activeSearch && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Popular Searches */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                Pencarian Populer
+              </CardTitle>
+              <CardDescription>Klik untuk mencari langsung</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {popularSearches && popularSearches.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {popularSearches.map((search: any) => (
+                    <Button
+                      key={search.id}
+                      variant={search.has_results ? "secondary" : "outline"}
+                      size="sm"
+                      onClick={() => handleQuickSearch(search.original_query)}
+                      className="text-xs"
+                    >
+                      {search.original_query}
+                      <Badge variant="outline" className="ml-1 text-[10px]">
+                        {search.search_count}x
+                      </Badge>
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Belum ada pencarian</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* No Result Searches - For Developer */}
+          <Card className="border-dashed">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Plus className="h-4 w-4 text-orange-500" />
+                Perlu Ditambahkan ke Database
+              </CardTitle>
+              <CardDescription>Pencarian yang tidak menemukan hasil</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {noResultSearches && noResultSearches.length > 0 ? (
+                <div className="space-y-2">
+                  {noResultSearches.map((search: any) => (
+                    <div 
+                      key={search.id} 
+                      className="flex items-center justify-between p-2 rounded bg-muted/50"
+                    >
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{search.original_query}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Dicari {search.search_count}x • {new Date(search.last_searched_at).toLocaleDateString("id-ID")}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleQuickSearch(search.original_query)}
+                      >
+                        <Search className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Semua pencarian menemukan hasil</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {isLoading && (
         <div className="space-y-4">
@@ -344,12 +556,15 @@ export default function SearchPage() {
             searchResults.dtcCodes.length === 0 &&
             searchResults.sensors.length === 0 &&
             searchResults.actuators.length === 0 && (
-              <Card>
+              <Card className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/20">
                 <CardContent className="py-12 text-center">
-                  <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <Search className="h-12 w-12 mx-auto text-orange-500 mb-4" />
                   <h3 className="text-lg font-medium">Tidak ada hasil ditemukan</h3>
-                  <p className="text-muted-foreground">
-                    Coba kata kunci lain atau periksa ejaan Anda
+                  <p className="text-muted-foreground mb-4">
+                    Pencarian "{activeSearch}" telah dicatat dan akan ditambahkan ke database
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Kata kunci yang dicari: {translatedKeywords.join(", ")}
                   </p>
                 </CardContent>
               </Card>
@@ -357,13 +572,13 @@ export default function SearchPage() {
         </div>
       )}
 
-      {!activeSearch && !isLoading && (
+      {!activeSearch && !isLoading && popularSearches?.length === 0 && noResultSearches?.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
             <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium">Mulai Pencarian Diagnostik</h3>
             <p className="text-muted-foreground">
-              Masukkan gejala seperti "mesin bergetar", kode DTC seperti "P0300", atau deskripsi masalah
+              Masukkan gejala dengan bahasa natural seperti "mesin bergetar saat idle", kode DTC seperti "P0300", atau deskripsi masalah lainnya
             </p>
           </CardContent>
         </Card>

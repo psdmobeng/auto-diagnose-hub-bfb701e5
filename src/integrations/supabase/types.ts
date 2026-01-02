@@ -333,6 +333,36 @@ export type Database = {
           },
         ]
       }
+      search_queries: {
+        Row: {
+          created_at: string
+          has_results: boolean | null
+          id: string
+          last_searched_at: string | null
+          original_query: string
+          search_count: number | null
+          translated_keywords: string[] | null
+        }
+        Insert: {
+          created_at?: string
+          has_results?: boolean | null
+          id?: string
+          last_searched_at?: string | null
+          original_query: string
+          search_count?: number | null
+          translated_keywords?: string[] | null
+        }
+        Update: {
+          created_at?: string
+          has_results?: boolean | null
+          id?: string
+          last_searched_at?: string | null
+          original_query?: string
+          search_count?: number | null
+          translated_keywords?: string[] | null
+        }
+        Relationships: []
+      }
       sensors: {
         Row: {
           created_at: string
