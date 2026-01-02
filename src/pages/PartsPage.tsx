@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DataTable, Column, CategoryBadge } from "@/components/crud/DataTable";
 import { FormDialog } from "@/components/crud/FormDialog";
 import { PageHeader } from "@/components/crud/PageHeader";
+import { DetailSheet, DetailField, DetailParagraph } from "@/components/crud/DetailSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +31,7 @@ export default function PartsPage() {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PartsFactor | null>(null);
+  const [selectedItem, setSelectedItem] = useState<PartsFactor | null>(null);
   const [formData, setFormData] = useState({ problem_id: "", component_name: "", component_type: "", failure_cause: "", wear_indicator: "", replacement_interval: "" });
 
   const { data: parts = [], isLoading } = useQuery({
@@ -89,10 +91,38 @@ export default function PartsPage() {
     { key: "replacement_interval", header: "Interval Ganti", className: "hidden lg:table-cell" },
   ];
 
+  const getDetailFields = (item: PartsFactor): DetailField[] => [
+    { label: "Nama Komponen", value: item.component_name },
+    { label: "Tipe Komponen", value: item.component_type ? <CategoryBadge category={item.component_type} /> : null },
+    { label: "Problem Terkait", value: item.problems ? `${item.problems.problem_code} - ${item.problems.problem_name}` : null },
+    { label: "Interval Penggantian", value: item.replacement_interval },
+    { label: "Indikator Keausan", value: item.wear_indicator },
+    { label: "Penyebab Kegagalan", value: item.failure_cause ? <DetailParagraph>{item.failure_cause}</DetailParagraph> : null, fullWidth: true },
+  ];
+
   return (
     <div className="p-6 animate-fade-in">
       <PageHeader title="Parts & Factors" description="Kelola data komponen dan faktor eksternal" icon={<Layers className="h-5 w-5" />} />
-      <DataTable data={parts} columns={columns} isLoading={isLoading} idKey="part_id" onAdd={() => setIsFormOpen(true)} onEdit={handleEdit} onDelete={(item) => deleteMutation.mutate(item.part_id)} />
+      
+      <DataTable 
+        data={parts} 
+        columns={columns} 
+        isLoading={isLoading} 
+        idKey="part_id" 
+        onAdd={() => setIsFormOpen(true)} 
+        onEdit={handleEdit} 
+        onDelete={(item) => deleteMutation.mutate(item.part_id)}
+        onRowClick={setSelectedItem}
+      />
+
+      <DetailSheet
+        open={!!selectedItem}
+        onOpenChange={(open) => !open && setSelectedItem(null)}
+        title={selectedItem?.component_name || ""}
+        subtitle="Detail Komponen"
+        fields={selectedItem ? getDetailFields(selectedItem) : []}
+        badge={selectedItem?.component_type ? { label: selectedItem.component_type } : undefined}
+      />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Part/Factor" : "Tambah Part/Factor"} useSheet>
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -2,20 +2,24 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
-import { DataTable } from "@/components/crud/DataTable";
+import { DataTable, Column, CategoryBadge } from "@/components/crud/DataTable";
 import { FormDialog } from "@/components/crud/FormDialog";
 import { PageHeader } from "@/components/crud/PageHeader";
+import { DetailSheet, DetailField, DetailParagraph } from "@/components/crud/DetailSheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Constants } from "@/integrations/supabase/types";
-import { Hammer, Plus } from "lucide-react";
+import { Hammer, Plus, CheckCircle, XCircle } from "lucide-react";
 
-type Tool = Tables<"tools">;
+type Tool = Tables<"tools"> & {
+  solutions?: { solution_step: string; problems?: { problem_name: string } | null } | null;
+};
 type ToolInsert = TablesInsert<"tools">;
 type ToolUpdate = TablesUpdate<"tools">;
 
@@ -25,6 +29,7 @@ export default function ToolsPage() {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Tool | null>(null);
+  const [selectedItem, setSelectedItem] = useState<Tool | null>(null);
   const [formData, setFormData] = useState<Partial<ToolInsert>>({});
 
   const { data: tools = [], isLoading } = useQuery({
@@ -35,7 +40,7 @@ export default function ToolsPage() {
         .select("*, solutions(solution_step, problems(problem_name))")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      return data as Tool[];
     },
   });
 
@@ -92,20 +97,12 @@ export default function ToolsPage() {
     onError: (error) => toast.error(`Gagal: ${error.message}`),
   });
 
-  const columns = [
-    { key: "tool_name", header: "Nama Tool" },
-    { key: "tool_category", header: "Kategori" },
-    { key: "tool_specification", header: "Spesifikasi" },
-    { 
-      key: "solutions", 
-      header: "Problem", 
-      render: (item: any) => item.solutions?.problems?.problem_name || "-" 
-    },
-    { 
-      key: "is_mandatory", 
-      header: "Wajib", 
-      render: (item: any) => item.is_mandatory ? "Ya" : "Tidak" 
-    },
+  const columns: Column<Tool>[] = [
+    { key: "tool_name", header: "Nama Tool", render: (item) => <span className="font-medium">{item.tool_name}</span> },
+    { key: "tool_category", header: "Kategori", render: (item) => item.tool_category ? <CategoryBadge category={item.tool_category} /> : "-" },
+    { key: "tool_specification", header: "Spesifikasi", className: "hidden md:table-cell", render: (item) => <span className="text-sm text-muted-foreground line-clamp-1">{item.tool_specification || "-"}</span> },
+    { key: "solutions", header: "Problem", render: (item) => <span className="text-sm">{item.solutions?.problems?.problem_name || "-"}</span> },
+    { key: "is_mandatory", header: "Wajib", render: (item) => item.is_mandatory ? <CheckCircle className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-muted-foreground" /> },
   ];
 
   const handleCreate = () => {
@@ -132,8 +129,17 @@ export default function ToolsPage() {
     }
   };
 
+  const getDetailFields = (item: Tool): DetailField[] => [
+    { label: "Nama Tool", value: item.tool_name },
+    { label: "Kategori", value: item.tool_category ? <CategoryBadge category={item.tool_category} /> : null },
+    { label: "Problem Terkait", value: item.solutions?.problems?.problem_name },
+    { label: "Wajib Digunakan", value: item.is_mandatory ? <Badge className="bg-green-500">Ya - Wajib</Badge> : <Badge variant="outline">Tidak - Opsional</Badge> },
+    { label: "Spesifikasi", value: item.tool_specification ? <DetailParagraph>{item.tool_specification}</DetailParagraph> : null, fullWidth: true },
+    { label: "Tool Alternatif", value: item.alternative_tool, fullWidth: true },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="p-6 animate-fade-in space-y-6">
       <PageHeader
         title="Tools Required"
         description="Kelola data alat yang dibutuhkan untuk setiap solusi"
@@ -152,7 +158,17 @@ export default function ToolsPage() {
         isLoading={isLoading}
         onEdit={handleEdit}
         onDelete={(item) => deleteMutation.mutate(item.tool_id)}
+        onRowClick={setSelectedItem}
         idKey="tool_id"
+      />
+
+      <DetailSheet
+        open={!!selectedItem}
+        onOpenChange={(open) => !open && setSelectedItem(null)}
+        title={selectedItem?.tool_name || ""}
+        subtitle="Detail Tool"
+        fields={selectedItem ? getDetailFields(selectedItem) : []}
+        badge={selectedItem?.tool_category ? { label: selectedItem.tool_category } : undefined}
       />
 
       <FormDialog

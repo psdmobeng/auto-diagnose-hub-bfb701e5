@@ -2,18 +2,23 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
-import { DataTable } from "@/components/crud/DataTable";
+import { DataTable, Column, CategoryBadge } from "@/components/crud/DataTable";
 import { FormDialog } from "@/components/crud/FormDialog";
 import { PageHeader } from "@/components/crud/PageHeader";
+import { DetailSheet, DetailField } from "@/components/crud/DetailSheet";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Constants } from "@/integrations/supabase/types";
-import { GitBranch, Plus } from "lucide-react";
+import { GitBranch, Plus, Sparkles, ArrowRight } from "lucide-react";
 
-type ProblemRelation = Tables<"problem_relations">;
+type ProblemRelation = Tables<"problem_relations"> & {
+  primary_problem?: { problem_name: string; problem_code: string } | null;
+  related_problem?: { problem_name: string; problem_code: string } | null;
+};
 type ProblemRelationInsert = TablesInsert<"problem_relations">;
 type ProblemRelationUpdate = TablesUpdate<"problem_relations">;
 
@@ -23,6 +28,7 @@ export default function RelationsPage() {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ProblemRelation | null>(null);
+  const [selectedItem, setSelectedItem] = useState<ProblemRelation | null>(null);
   const [formData, setFormData] = useState<Partial<ProblemRelationInsert>>({});
 
   const { data: relations = [], isLoading } = useQuery({
@@ -37,7 +43,7 @@ export default function RelationsPage() {
         `)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      return data as ProblemRelation[];
     },
   });
 
@@ -94,23 +100,11 @@ export default function RelationsPage() {
     onError: (error) => toast.error(`Gagal: ${error.message}`),
   });
 
-  const columns = [
-    { 
-      key: "primary_problem", 
-      header: "Problem Utama", 
-      render: (item: any) => item.primary_problem ? `${item.primary_problem.problem_code} - ${item.primary_problem.problem_name}` : "-" 
-    },
-    { key: "relation_type", header: "Tipe Relasi" },
-    { 
-      key: "related_problem", 
-      header: "Problem Terkait", 
-      render: (item: any) => item.related_problem ? `${item.related_problem.problem_code} - ${item.related_problem.problem_name}` : "-" 
-    },
-    { 
-      key: "is_ai_generated", 
-      header: "AI Generated", 
-      render: (item: any) => item.is_ai_generated ? "Ya" : "Tidak" 
-    },
+  const columns: Column<ProblemRelation>[] = [
+    { key: "primary_problem", header: "Problem Utama", render: (item) => <code className="text-xs bg-muted px-2 py-1 rounded">{item.primary_problem?.problem_code}</code> },
+    { key: "relation_type", header: "Tipe Relasi", render: (item) => <div className="flex items-center gap-2"><ArrowRight className="h-4 w-4 text-muted-foreground" /><CategoryBadge category={item.relation_type} /></div> },
+    { key: "related_problem", header: "Problem Terkait", render: (item) => <code className="text-xs bg-muted px-2 py-1 rounded">{item.related_problem?.problem_code}</code> },
+    { key: "is_ai_generated", header: "", className: "w-8", render: (item) => item.is_ai_generated ? <Sparkles className="h-4 w-4 text-primary" /> : null },
   ];
 
   const handleCreate = () => {
@@ -141,8 +135,15 @@ export default function RelationsPage() {
     }
   };
 
+  const getDetailFields = (item: ProblemRelation): DetailField[] => [
+    { label: "Problem Utama", value: item.primary_problem ? <div><code className="px-2 py-1 bg-muted rounded font-mono">{item.primary_problem.problem_code}</code><p className="text-sm mt-1">{item.primary_problem.problem_name}</p></div> : null },
+    { label: "Tipe Relasi", value: <Badge variant="outline" className="text-base">{item.relation_type}</Badge> },
+    { label: "Problem Terkait", value: item.related_problem ? <div><code className="px-2 py-1 bg-muted rounded font-mono">{item.related_problem.problem_code}</code><p className="text-sm mt-1">{item.related_problem.problem_name}</p></div> : null },
+    { label: "AI Generated", value: item.is_ai_generated ? <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Ya</div> : "Tidak" },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="p-6 animate-fade-in space-y-6">
       <PageHeader
         title="Problem Relations"
         description="Kelola hubungan antar masalah kendaraan"
@@ -161,7 +162,17 @@ export default function RelationsPage() {
         isLoading={isLoading}
         onEdit={handleEdit}
         onDelete={(item) => deleteMutation.mutate(item.relation_id)}
+        onRowClick={setSelectedItem}
         idKey="relation_id"
+      />
+
+      <DetailSheet
+        open={!!selectedItem}
+        onOpenChange={(open) => !open && setSelectedItem(null)}
+        title="Relasi Problem"
+        subtitle={selectedItem?.relation_type || ""}
+        fields={selectedItem ? getDetailFields(selectedItem) : []}
+        badge={selectedItem ? { label: selectedItem.relation_type } : undefined}
       />
 
       <FormDialog
