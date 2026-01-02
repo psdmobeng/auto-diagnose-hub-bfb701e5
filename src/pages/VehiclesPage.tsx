@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DataTable, Column, CategoryBadge } from "@/components/crud/DataTable";
 import { FormDialog } from "@/components/crud/FormDialog";
 import { PageHeader } from "@/components/crud/PageHeader";
+import { DetailSheet, DetailField } from "@/components/crud/DetailSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +31,7 @@ export default function VehiclesPage() {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<VehicleModel | null>(null);
+  const [selectedItem, setSelectedItem] = useState<VehicleModel | null>(null);
   const [formData, setFormData] = useState({
     manufacturer: "",
     model_name: "",
@@ -136,6 +138,15 @@ export default function VehiclesPage() {
     { key: "market_region", header: "Region", className: "hidden lg:table-cell" },
   ];
 
+  const getDetailFields = (item: VehicleModel): DetailField[] => [
+    { label: "Manufacturer", value: item.manufacturer },
+    { label: "Model", value: item.model_name },
+    { label: "Tahun Produksi", value: item.year_range },
+    { label: "Tipe Mesin", value: item.engine_type },
+    { label: "Transmisi", value: item.transmission_type },
+    { label: "Region Pasar", value: item.market_region },
+  ];
+
   return (
     <div className="p-6 animate-fade-in">
       <PageHeader
@@ -152,8 +163,18 @@ export default function VehiclesPage() {
         onAdd={() => setIsFormOpen(true)}
         onEdit={handleEdit}
         onDelete={(item) => deleteMutation.mutate(item.model_id)}
+        onRowClick={setSelectedItem}
         searchPlaceholder="Cari kendaraan..."
         emptyMessage="Belum ada data kendaraan"
+      />
+
+      <DetailSheet
+        open={!!selectedItem}
+        onOpenChange={(open) => !open && setSelectedItem(null)}
+        title={selectedItem ? `${selectedItem.manufacturer} ${selectedItem.model_name}` : ""}
+        subtitle="Detail Kendaraan"
+        fields={selectedItem ? getDetailFields(selectedItem) : []}
+        badge={selectedItem ? { label: selectedItem.market_region || "Indonesia" } : undefined}
       />
 
       <FormDialog

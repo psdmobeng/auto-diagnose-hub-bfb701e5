@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DataTable, Column } from "@/components/crud/DataTable";
 import { FormDialog } from "@/components/crud/FormDialog";
 import { PageHeader } from "@/components/crud/PageHeader";
+import { DetailSheet, DetailField, DetailParagraph } from "@/components/crud/DetailSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +28,7 @@ export default function SensorsPage() {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Sensor | null>(null);
+  const [selectedItem, setSelectedItem] = useState<Sensor | null>(null);
   const [formData, setFormData] = useState({ problem_id: "", sensor_name: "", sensor_location: "", failure_mode: "", testing_method: "" });
 
   const { data: sensors = [], isLoading } = useQuery({
@@ -86,10 +88,36 @@ export default function SensorsPage() {
     { key: "failure_mode", header: "Failure Mode", className: "hidden lg:table-cell", render: (item) => <span className="text-sm text-muted-foreground line-clamp-1">{item.failure_mode || "-"}</span> },
   ];
 
+  const getDetailFields = (item: Sensor): DetailField[] => [
+    { label: "Nama Sensor", value: item.sensor_name },
+    { label: "Problem Terkait", value: item.problems ? `${item.problems.problem_code} - ${item.problems.problem_name}` : null },
+    { label: "Lokasi Sensor", value: item.sensor_location },
+    { label: "Failure Mode", value: item.failure_mode ? <DetailParagraph>{item.failure_mode}</DetailParagraph> : null, fullWidth: true },
+    { label: "Metode Pengujian", value: item.testing_method ? <DetailParagraph>{item.testing_method}</DetailParagraph> : null, fullWidth: true },
+  ];
+
   return (
     <div className="p-6 animate-fade-in">
       <PageHeader title="Sensors" description="Kelola data sensor kendaraan" icon={<Cpu className="h-5 w-5" />} />
-      <DataTable data={sensors} columns={columns} isLoading={isLoading} idKey="sensor_id" onAdd={() => setIsFormOpen(true)} onEdit={handleEdit} onDelete={(item) => deleteMutation.mutate(item.sensor_id)} />
+      
+      <DataTable 
+        data={sensors} 
+        columns={columns} 
+        isLoading={isLoading} 
+        idKey="sensor_id" 
+        onAdd={() => setIsFormOpen(true)} 
+        onEdit={handleEdit} 
+        onDelete={(item) => deleteMutation.mutate(item.sensor_id)}
+        onRowClick={setSelectedItem}
+      />
+
+      <DetailSheet
+        open={!!selectedItem}
+        onOpenChange={(open) => !open && setSelectedItem(null)}
+        title={selectedItem?.sensor_name || ""}
+        subtitle="Detail Sensor"
+        fields={selectedItem ? getDetailFields(selectedItem) : []}
+      />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Sensor" : "Tambah Sensor"} useSheet>
         <form onSubmit={handleSubmit} className="space-y-4">

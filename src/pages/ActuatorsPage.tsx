@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { DataTable, Column } from "@/components/crud/DataTable";
+import { DataTable, Column, CategoryBadge } from "@/components/crud/DataTable";
 import { FormDialog } from "@/components/crud/FormDialog";
 import { PageHeader } from "@/components/crud/PageHeader";
+import { DetailSheet, DetailField, DetailParagraph } from "@/components/crud/DetailSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,7 @@ export default function ActuatorsPage() {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Actuator | null>(null);
+  const [selectedItem, setSelectedItem] = useState<Actuator | null>(null);
   const [formData, setFormData] = useState({ problem_id: "", actuator_name: "", actuator_type: "", failure_symptoms: "", testing_procedure: "" });
 
   const { data: actuators = [], isLoading } = useQuery({
@@ -88,10 +90,37 @@ export default function ActuatorsPage() {
     { key: "failure_symptoms", header: "Gejala Kegagalan", className: "hidden lg:table-cell", render: (item) => <span className="text-sm text-muted-foreground line-clamp-1">{item.failure_symptoms || "-"}</span> },
   ];
 
+  const getDetailFields = (item: Actuator): DetailField[] => [
+    { label: "Nama Actuator", value: item.actuator_name },
+    { label: "Tipe Actuator", value: item.actuator_type ? <CategoryBadge category={item.actuator_type} /> : null },
+    { label: "Problem Terkait", value: item.problems ? `${item.problems.problem_code} - ${item.problems.problem_name}` : null },
+    { label: "Gejala Kegagalan", value: item.failure_symptoms ? <DetailParagraph>{item.failure_symptoms}</DetailParagraph> : null, fullWidth: true },
+    { label: "Prosedur Pengujian", value: item.testing_procedure ? <DetailParagraph>{item.testing_procedure}</DetailParagraph> : null, fullWidth: true },
+  ];
+
   return (
     <div className="p-6 animate-fade-in">
       <PageHeader title="Actuators" description="Kelola data aktuator kendaraan" icon={<Cog className="h-5 w-5" />} />
-      <DataTable data={actuators} columns={columns} isLoading={isLoading} idKey="actuator_id" onAdd={() => setIsFormOpen(true)} onEdit={handleEdit} onDelete={(item) => deleteMutation.mutate(item.actuator_id)} />
+      
+      <DataTable 
+        data={actuators} 
+        columns={columns} 
+        isLoading={isLoading} 
+        idKey="actuator_id" 
+        onAdd={() => setIsFormOpen(true)} 
+        onEdit={handleEdit} 
+        onDelete={(item) => deleteMutation.mutate(item.actuator_id)}
+        onRowClick={setSelectedItem}
+      />
+
+      <DetailSheet
+        open={!!selectedItem}
+        onOpenChange={(open) => !open && setSelectedItem(null)}
+        title={selectedItem?.actuator_name || ""}
+        subtitle="Detail Actuator"
+        fields={selectedItem ? getDetailFields(selectedItem) : []}
+        badge={selectedItem?.actuator_type ? { label: selectedItem.actuator_type } : undefined}
+      />
       
       <FormDialog open={isFormOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsFormOpen(true); }} title={editingItem ? "Edit Actuator" : "Tambah Actuator"} useSheet>
         <form onSubmit={handleSubmit} className="space-y-4">

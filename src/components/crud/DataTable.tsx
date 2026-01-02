@@ -43,6 +43,7 @@ interface DataTableProps<T> {
   onEdit?: (item: T) => void;
   onDelete?: (item: T) => void;
   onAdd?: () => void;
+  onRowClick?: (item: T) => void;
   searchPlaceholder?: string;
   idKey?: keyof T;
   title?: string;
@@ -56,6 +57,7 @@ export function DataTable<T extends Record<string, any>>({
   onEdit,
   onDelete,
   onAdd,
+  onRowClick,
   searchPlaceholder = "Cari...",
   idKey = "id" as keyof T,
   title,
@@ -126,7 +128,14 @@ export function DataTable<T extends Record<string, any>>({
               </TableRow>
             ) : (
               filteredData.map((item, index) => (
-                <TableRow key={String(item[idKey]) || index} className="hover:bg-muted/30">
+                <TableRow 
+                  key={String(item[idKey]) || index} 
+                  className={cn(
+                    "hover:bg-muted/30",
+                    onRowClick && "cursor-pointer"
+                  )}
+                  onClick={() => onRowClick?.(item)}
+                >
                   {columns.map((column) => (
                     <TableCell key={String(column.key)} className={column.className}>
                       {column.render
@@ -138,20 +147,25 @@ export function DataTable<T extends Record<string, any>>({
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {onEdit && (
-                            <DropdownMenuItem onClick={() => onEdit(item)}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(item); }}>
                               <Pencil className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
                           )}
                           {onDelete && (
                             <DropdownMenuItem
-                              onClick={() => setDeleteItem(item)}
+                              onClick={(e) => { e.stopPropagation(); setDeleteItem(item); }}
                               className="text-destructive focus:text-destructive"
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
