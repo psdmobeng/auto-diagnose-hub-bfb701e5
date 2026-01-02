@@ -17,6 +17,9 @@ import SolutionsPage from "./pages/SolutionsPage";
 import TheoryPage from "./pages/TheoryPage";
 import SafetyPage from "./pages/SafetyPage";
 import CostsPage from "./pages/CostsPage";
+import ToolsPage from "./pages/ToolsPage";
+import RelationsPage from "./pages/RelationsPage";
+import SearchPage from "./pages/SearchPage";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import NotFound from "./pages/NotFound";
 
@@ -34,7 +37,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route element={<DashboardLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/search" element={<Dashboard />} />
+              <Route path="/search" element={<SearchPage />} />
               <Route path="/vehicles" element={<VehiclesPage />} />
               <Route path="/problems" element={<ProblemsPage />} />
               <Route path="/symptoms" element={<SymptomsPage />} />
@@ -44,8 +47,8 @@ const App = () => (
               <Route path="/parts" element={<PartsPage />} />
               <Route path="/solutions" element={<SolutionsPage />} />
               <Route path="/theory" element={<TheoryPage />} />
-              <Route path="/tools" element={<Dashboard />} />
-              <Route path="/relations" element={<Dashboard />} />
+              <Route path="/tools" element={<ToolsPage />} />
+              <Route path="/relations" element={<RelationsPage />} />
               <Route path="/safety" element={<SafetyPage />} />
               <Route path="/costs" element={<CostsPage />} />
             </Route>
