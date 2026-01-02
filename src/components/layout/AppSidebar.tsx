@@ -1,6 +1,8 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Sidebar,
   SidebarContent,
@@ -16,6 +18,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard,
   Car,
@@ -33,7 +36,7 @@ import {
   DollarSign,
   Search,
   LogOut,
-  ChevronRight,
+  ShieldCheck,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -63,11 +66,32 @@ const safetyItems = [
   { title: "Cost Estimation", url: "/costs", icon: DollarSign },
 ];
 
+const adminItems = [
+  { title: "Admin Panel", url: "/admin", icon: ShieldCheck },
+];
+
 export function AppSidebar() {
   const { user, signOut } = useAuth();
   const location = useLocation();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+
+  // Check if user is admin
+  const { data: userRole } = useQuery({
+    queryKey: ["userRole", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .single();
+      return data?.role;
+    },
+    enabled: !!user?.id,
+  });
+
+  const isAdmin = userRole === "admin";
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -157,6 +181,21 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAdmin && (
+          <SidebarGroup className="mt-4">
+            <SidebarGroupLabel className={cn("px-3 text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider", collapsed && "sr-only")}>
+              Administration
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminItems.map((item) => (
+                  <NavItem key={item.url} item={item} />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
@@ -171,7 +210,11 @@ export function AppSidebar() {
               <p className="text-sm font-medium text-sidebar-foreground truncate max-w-[120px]">
                 {user?.email?.split("@")[0] || "User"}
               </p>
-              <p className="text-xs text-sidebar-foreground/60">Senior Technician</p>
+              <div className="flex items-center gap-1">
+                <Badge variant={isAdmin ? "destructive" : "secondary"} className="text-[10px] px-1 py-0">
+                  {userRole || "..."}
+                </Badge>
+              </div>
             </div>
           </div>
           <Button
