@@ -56,7 +56,7 @@ export default function SearchPage() {
         .from("search_queries")
         .select("*")
         .ilike("original_query", query)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         // Update existing
