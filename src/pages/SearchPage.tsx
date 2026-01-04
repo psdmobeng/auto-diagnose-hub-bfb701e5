@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -6,16 +6,31 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Search, AlertTriangle, Wrench, BookOpen, Shield, DollarSign, Cpu, Cog, TrendingUp, Clock, Plus } from "lucide-react";
+import { Search, AlertTriangle, Wrench, BookOpen, Shield, DollarSign, Cpu, Cog, TrendingUp, Plus, Loader2, MessageCircleQuestion } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { translateToKeywords } from "@/lib/searchKeywords";
 import { toast } from "sonner";
+import { useDiagnosticQuestions } from "@/hooks/useDiagnosticQuestions";
+import { ClarifyingQuestions } from "@/components/diagnostic/ClarifyingQuestions";
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
   const [translatedKeywords, setTranslatedKeywords] = useState<string[]>([]);
   const queryClient = useQueryClient();
+  
+  const {
+    questions,
+    answers,
+    isLoadingQuestions,
+    showQuestions,
+    pendingQuery,
+    fetchQuestions,
+    setAnswer,
+    proceedWithSearch,
+    skipQuestions,
+    resetQuestions,
+  } = useDiagnosticQuestions();
 
   // Fetch popular searches
   const { data: popularSearches } = useQuery({
@@ -176,22 +191,47 @@ export default function SearchPage() {
     enabled: !!activeSearch && translatedKeywords.length > 0,
   });
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     
-    // Translate natural language to keywords
-    const keywords = translateToKeywords(searchQuery);
+    // Reset previous search
+    setActiveSearch("");
+    resetQuestions();
+    
+    // Fetch AI-driven clarifying questions
+    await fetchQuestions(searchQuery);
+  };
+
+  const handleProceedWithQuestions = () => {
+    const enhancedKeywords = proceedWithSearch();
+    // Combine with standard keyword translation
+    const baseKeywords = translateToKeywords(pendingQuery);
+    const allKeywords = [...new Set([...baseKeywords, ...enhancedKeywords])];
+    
+    setTranslatedKeywords(allKeywords);
+    setActiveSearch(pendingQuery);
+    
+    toast.info(`Mencari dengan ${allKeywords.length} kata kunci yang diperkaya AI`);
+  };
+
+  const handleSkipQuestions = () => {
+    skipQuestions();
+    const keywords = translateToKeywords(pendingQuery);
     setTranslatedKeywords(keywords);
-    setActiveSearch(searchQuery);
+    setActiveSearch(pendingQuery);
     
     toast.info(`Mencari dengan kata kunci: ${keywords.slice(0, 5).join(", ")}${keywords.length > 5 ? "..." : ""}`);
   };
 
-  const handleQuickSearch = (query: string) => {
+  const handleQuickSearch = async (query: string) => {
     setSearchQuery(query);
-    const keywords = translateToKeywords(query);
-    setTranslatedKeywords(keywords);
-    setActiveSearch(query);
+    
+    // Reset previous search
+    setActiveSearch("");
+    resetQuestions();
+    
+    // Fetch AI-driven clarifying questions
+    await fetchQuestions(query);
   };
 
   const getSeverityColor = (level: string) => {
@@ -225,9 +265,13 @@ export default function SearchPage() {
                 className="pl-10"
               />
             </div>
-            <Button onClick={handleSearch} disabled={!searchQuery.trim()}>
-              <Search className="h-4 w-4 mr-2" />
-              Cari
+            <Button onClick={handleSearch} disabled={!searchQuery.trim() || isLoadingQuestions}>
+              {isLoadingQuestions ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <MessageCircleQuestion className="h-4 w-4 mr-2" />
+              )}
+              {isLoadingQuestions ? "Menganalisis..." : "Diagnosa AI"}
             </Button>
           </div>
 
@@ -249,8 +293,46 @@ export default function SearchPage() {
         </CardContent>
       </Card>
 
+      {/* AI-Generated Clarifying Questions */}
+      {showQuestions && questions.length > 0 && (
+        <ClarifyingQuestions
+          questions={questions}
+          answers={answers}
+          pendingQuery={pendingQuery}
+          onAnswer={setAnswer}
+          onProceed={handleProceedWithQuestions}
+          onSkip={handleSkipQuestions}
+        />
+      )}
+
+      {/* Loading Questions Skeleton */}
+      {isLoadingQuestions && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader className="pb-3">
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-4 w-64 mt-2" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <div className="grid grid-cols-2 gap-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <div className="grid grid-cols-2 gap-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Popular Searches & No Result Searches */}
-      {!activeSearch && (
+      {!activeSearch && !showQuestions && !isLoadingQuestions && (
         <div className="grid gap-4 md:grid-cols-2">
           {/* Popular Searches */}
           <Card>
